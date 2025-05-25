@@ -1,3 +1,9 @@
+import 'dotenv/config';
+
+// Debug: Log environment variables
+console.log('Loading environment variables...');
+console.log('SUPABASE_ANON_KEY exists:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+
 export default {
   expo: {
     name: "ConnectCampus+",
@@ -29,8 +35,8 @@ export default {
       typedRoutes: true
     },
     extra: {
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseUrl: 'https://nedjvdbsurnupqqsedoc.supabase.co',
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
     }
   }
 }; 

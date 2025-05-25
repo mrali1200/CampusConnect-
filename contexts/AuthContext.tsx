@@ -2,19 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-// Type assertion for Supabase v1 API
-// This helps TypeScript understand the older API format
-type SupabaseV1Auth = {
-  session: () => Session | null;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string) => Promise<any>;
-  signOut: () => Promise<any>;
-  onAuthStateChange: (callback: (event: string, session: Session | null) => void) => { data: any };
-};
-
-// Cast supabase.auth to the v1 format
-const auth = supabase.auth as unknown as SupabaseV1Auth;
-
 interface AuthState {
   session: Session | null;
   user: User | null;
@@ -52,31 +39,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    // For Supabase v1.35.7
-    // Get current session
-    const session = auth.session();
+    // Get initial session
+    const session = supabase.auth.session();
     setSession(session);
     setUser(session?.user ?? null);
+
     if (session?.user) {
       loadUserProfile(session.user.id);
     }
 
     // Listen for auth changes
-    const { data: authListener } = auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
         loadUserProfile(session.user.id);
       } else {
         setProfile(null);
       }
+      setIsLoading(false);
     });
 
-    // Cleanup subscription
     return () => {
-      if (authListener && typeof authListener.unsubscribe === 'function') {
-        authListener.unsubscribe();
-      }
+      authListener?.unsubscribe();
     };
   }, []);
 
@@ -88,64 +75,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading profile:', error);
+        return;
+      }
+
       setProfile(data);
     } catch (error) {
-      console.error('Error loading user profile:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error in loadUserProfile:', error);
     }
-  };
-
-  const signUp = async (email: string, password: string, fullName: string) => {
-    // For Supabase v1.35.7
-    const { error, user } = await auth.signUp(
-      email,
-      password
-    );
-    
-    // If signup successful, update the profile with full name
-    if (user && !error) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: fullName,
-          email: email,
-          updated_at: new Date().toISOString()
-        });
-        
-      if (profileError) throw profileError;
-    }
-    
-    if (error) throw error;
   };
 
   const signIn = async (email: string, password: string) => {
-    // For Supabase v1.35.7
-    const { error } = await auth.signIn(
-      email,
-      password
-    );
+    const { error } = await supabase.auth.signIn({ email, password });
+    if (error) throw error;
+  };
 
+  const signUp = async (email: string, password: string, fullName: string) => {
+    const { user, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    if (user) {
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: email,
+            full_name: fullName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) throw profileError;
+      } catch (err) {
+        console.error('Error creating profile:', err);
+      }
+    }
+  };
+
+  const signOut = async () => {
+    if (isGuest) {
+      setIsGuest(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
 
   const continueAsGuest = () => {
     setIsGuest(true);
     setIsLoading(false);
-  };
-
-  const signOut = async () => {
-    // If in guest mode, just reset the guest state
-    if (isGuest) {
-      setIsGuest(false);
-      return;
-    }
-    
-    // Otherwise, sign out from Supabase
-    const { error } = await auth.signOut();
-    if (error) throw error;
   };
 
   const value = {

@@ -33,12 +33,25 @@ export default function SignUpScreen() {
     try {
       setIsLoading(true);
       setError('');
-      await signUp(email, password, fullName);
+      
+      // Validate email format
+      if (!email.includes('@')) {
+        setError('Please enter a valid email address');
+        return;
+      }
+
+      // Validate password strength
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        return;
+      }
+
+      await signUp(email.trim(), password, fullName.trim());
       alert('Please check your email to confirm your account.');
       router.replace('/sign-in');
-    } catch (err) {
-      setError('Failed to create account. Please try again.');
+    } catch (err: any) {
       console.error('Sign up error:', err);
+      setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setIsLoading(false);
     }

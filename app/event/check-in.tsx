@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal, Platform } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import ManualCheckIn from '@/components/events/ManualCheckIn';
+import QRCodeScanner from '@/components/events/QRCodeScanner';
 import CheckInConfirmation from '@/components/events/CheckInConfirmation';
-import { QrCode, ArrowLeft } from 'lucide-react-native';
+import { QrCode, ArrowLeft, Keyboard } from 'lucide-react-native';
 
 interface CheckInResult {
   success: boolean;
