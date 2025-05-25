@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Chrome as Home, Sparkles, User } from 'lucide-react-native';
+import { Chrome as Home, Sparkles, User, Users } from 'lucide-react-native';
 
 // Define the tab bar icon props interface
 interface TabBarIconProps {
@@ -46,6 +46,14 @@ export default function TabLayout() {
         options={{
           title: 'For You',
           tabBarIcon: ({ color, size }: TabBarIconProps) => <Sparkles size={size} color={color} />,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="social"
+        options={{
+          title: 'Social',
+          tabBarIcon: ({ color, size }: TabBarIconProps) => <Users size={size} color={color} />,
           headerShown: false,
         }}
       />
