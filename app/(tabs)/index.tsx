@@ -30,6 +30,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<'newest' | 'popular'>('newest');
+  const [dateRange, setDateRange] = useState<{ startDate: Date | null; endDate: Date | null } | null>(null);
   
   // Animation for search bar hiding
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -66,7 +67,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     filterAndSortEvents();
-  }, [searchQuery, selectedCategory, sortOption, events]);
+  }, [searchQuery, selectedCategory, sortOption, dateRange, events]);
 
   const filterAndSortEvents = () => {
     let filtered = [...events];
@@ -87,6 +88,30 @@ export default function HomeScreen() {
       filtered = filtered.filter((event) => event.category === selectedCategory);
     }
 
+    // Apply date range filter
+    if (dateRange && (dateRange.startDate || dateRange.endDate)) {
+      filtered = filtered.filter((event) => {
+        const eventDate = new Date(event.date);
+        
+        // Check if event is after start date (if provided)
+        if (dateRange.startDate && eventDate < dateRange.startDate) {
+          return false;
+        }
+        
+        // Check if event is before end date (if provided)
+        if (dateRange.endDate) {
+          // Add one day to end date to include events on the end date
+          const endDatePlusOne = new Date(dateRange.endDate);
+          endDatePlusOne.setDate(endDatePlusOne.getDate() + 1);
+          if (eventDate >= endDatePlusOne) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+    }
+
     // Apply sorting
     if (sortOption === 'newest') {
       filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -102,18 +127,8 @@ export default function HomeScreen() {
 
   const toggleSearch = () => {
     setShowSearch(!showSearch);
-    setShowCategories(false);
     // Reset the scroll position to show the search bar when toggled
     if (!showSearch) {
-      scrollY.setValue(0);
-    }
-  };
-
-  const toggleCategories = () => {
-    setShowCategories(!showCategories);
-    setShowSearch(false);
-    // Reset the scroll position to show the categories when toggled
-    if (!showCategories) {
       scrollY.setValue(0);
     }
   };
@@ -148,23 +163,25 @@ export default function HomeScreen() {
           headerTintColor: colors.text,
           headerShadowVisible: false,
           headerTransparent: true,
-          headerScrollEffect: 'none',
           headerRight: () => (
             <View style={styles.headerButtonsContainer}>
-              <TouchableOpacity onPress={toggleCategories} style={styles.headerButton}>
-                <Tag size={20} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={toggleSearch} style={styles.headerButton}>
-                <Search size={20} color={colors.text} />
+              <TouchableOpacity 
+                onPress={toggleSearch} 
+                style={[styles.headerButton, showSearch && styles.activeHeaderButton, { backgroundColor: showSearch ? colors.primary : 'transparent' }]}
+              >
+                <Search size={20} color={showSearch ? colors.background : colors.text} />
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={() => {
                   // Toggle sort option between newest and popular
                   setSortOption(sortOption === 'newest' ? 'popular' : 'newest');
                 }} 
-                style={styles.headerButton}
+                style={[styles.headerButton, { marginLeft: 8 }]}
               >
                 <SlidersHorizontal size={20} color={colors.text} />
+                <Text style={[styles.sortIndicator, { color: colors.text }]}>
+                  {sortOption === 'newest' ? 'Newest' : 'Popular'}
+                </Text>
               </TouchableOpacity>
             </View>
           ),
@@ -194,66 +211,13 @@ export default function HomeScreen() {
               setSelectedCategory={setSelectedCategory}
               sortOption={sortOption}
               setSortOption={setSortOption}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
             />
           </Animated.View>
         )}
         
-        {showCategories && (
-          <Animated.View 
-            style={[
-              styles.categoriesWrapper,
-              { 
-                transform: [{ translateY: searchBarTranslateY }],
-                opacity: searchBarOpacity,
-                backgroundColor: 'transparent',
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                zIndex: 10
-              }
-            ]}
-          >
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesScrollContainer}
-            >
-              {CATEGORIES.map((category) => (
-                <TouchableOpacity
-                  key={category}
-                  style={[
-                    styles.categoryChip,
-                    {
-                      backgroundColor:
-                        category === 'All' && !selectedCategory
-                          ? colors.primary
-                          : category === selectedCategory
-                          ? colors.primary
-                          : colors.card,
-                    },
-                  ]}
-                  onPress={() => handleCategorySelect(category)}
-                >
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      {
-                        color:
-                          category === 'All' && !selectedCategory
-                            ? colors.background
-                            : category === selectedCategory
-                            ? colors.background
-                            : colors.text,
-                      },
-                    ]}
-                  >
-                    {category}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Animated.View>
-        )}
+        {/* Categories are now integrated into the SearchFilterBar */}
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -322,6 +286,21 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
     marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  activeHeaderButton: {
+    padding: 8,
+    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  sortIndicator: {
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
