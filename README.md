@@ -1,9 +1,10 @@
 # ConnectCampus+
 
 <div align="center">
-  <img src="assets/icon.png" alt="ConnectCampus+ Logo" width="120" height="120" />
+  <img src="https://res.cloudinary.com/dzekrrkep/image/upload/v1748787128/projects/eel82hw0swvr9wur1puq.png" alt="ConnectCampus+ Logo" width="420" height="580" />
   <h3>A modern campus event management platform</h3>
 </div>
+
 
 ## 📱 Overview
 
