@@ -18,7 +18,7 @@ type AuthState = {
   profile: User | null;
   signIn: (email: string, password: string) => Promise<{ user: User | null; session: Session | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ user: User | null; session: Session | null }>;
-  signOut: () => Promise<void>;
+  signOut: () => Promise<boolean>; // Returns true if sign out was successful
   clearError: () => void;
   continueAsGuest: () => void;
 };
@@ -180,10 +180,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
+      // Validate input
+      if (!email || !password || !fullName) {
+        throw new Error('Please fill in all fields');
+      }
+
+      // Validate email format
+      if (!email.includes('@')) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      // Validate password strength
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
       const { user, error: authError } = await authService.signUpWithEmail(email, password, fullName);
       
       if (authError || !user) {
-        throw new Error(authError || 'Failed to sign up');
+        // Check if this is an 'email exists' error
+        if (authError?.toLowerCase().includes('already exists')) {
+          throw new Error('An account with this email already exists. Please sign in instead.');
+        }
+        throw new Error(authError || 'Failed to create account. Please try again.');
       }
       
       // Get the token after successful sign up
@@ -218,15 +237,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = useCallback(async () => {
+    // Optimistically update the UI to show loading state
+    setState(prev => ({ ...prev, loading: true }));
+    
     try {
-      // Use authService to handle sign out
-      const { error } = await authService.signOut();
+      // First, get the current user to determine if we should keep guest state
+      const currentUser = await authService.getCurrentUser();
+      const wasGuest = currentUser?.role === 'guest';
       
-      if (error) {
-        throw new Error(error);
-      }
-      
-      // Reset the state
+      // Clear the state first to prevent any race conditions
       setState({
         user: null,
         session: null,
@@ -236,11 +255,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin: false,
         profile: null,
       });
+      
+      // Then perform the actual sign out
+      const { error } = await authService.signOut(!wasGuest); // Don't keep guest if already a guest
+      
+      if (error) {
+        throw new Error(error);
+      }
+      
+      // If we got here, sign out was successful
+      return true;
     } catch (error) {
       console.error('Error during sign out:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
-      setState(prev => ({ ...prev, error: new Error(errorMessage) }));
-      throw error;
+      
+      // Update error state but don't throw - we want to keep the app in a usable state
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: new Error(errorMessage)
+      }));
+      
+      // Return false to indicate failure, but don't throw to prevent unhandled promise rejections
+      return false;
     }
   }, []);
 

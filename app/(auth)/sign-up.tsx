@@ -25,33 +25,30 @@ export default function SignUpScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!email || !password || !fullName) {
-      setError('Please fill in all fields');
-      return;
-    }
-
+    setIsLoading(true);
+    setError('');
+    
     try {
-      setIsLoading(true);
-      setError('');
-      
-      // Validate email format
-      if (!email.includes('@')) {
-        setError('Please enter a valid email address');
-        return;
-      }
-
-      // Validate password strength
-      if (password.length < 6) {
-        setError('Password must be at least 6 characters long');
-        return;
-      }
-
       await signUp(email.trim(), password, fullName.trim());
-      alert('Please check your email to confirm your account.');
+      
+      // If we get here, sign up was successful
+      alert('Your account has been created successfully!');
       router.replace('/sign-in');
     } catch (err: any) {
       console.error('Sign up error:', err);
-      setError(err.message || 'Failed to create account. Please try again.');
+      
+      // Set the error message from the error object
+      const errorMessage = err?.message || 'Failed to create account. Please try again.';
+      setError(errorMessage);
+      
+      // If it's an email exists error, suggest signing in
+      if (errorMessage.toLowerCase().includes('already exists')) {
+        // Keep the error message but don't show the alert
+        return;
+      }
+      
+      // For other errors, show an alert
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }

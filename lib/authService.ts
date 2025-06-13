@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storage } from './storage';
 import type { User, AuthResponse } from '@/types';
 
@@ -20,7 +21,7 @@ const guestUser: User = {
 // Admin user data - only created when explicitly requested
 const adminUser: User = {
   id: 'admin-1',
-  email: 'qadirdadkazi@gmail.com',
+  email: 'admin@campusconnect.com', // Changed to a more generic email
   fullName: 'Admin User',
   role: 'admin',
   avatarUrl: 'https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff',
@@ -28,26 +29,20 @@ const adminUser: User = {
   updatedAt: new Date().toISOString(),
 };
 
-// Function to initialize the default admin user (call this explicitly when needed)
-const createDefaultAdmin = async (): Promise<boolean> => {
+// Function to initialize the default admin user (must be called explicitly with correct credentials)
+const createDefaultAdmin = async (email: string, password: string): Promise<{success: boolean, error?: string}> => {
   try {
-    const existingUser = await storage.getUser();
-    
-    if (!existingUser) {
-      // If no user exists, create the admin user
-      await storage.setUser(adminUser);
-      console.log('Created admin user');
-      return true;
-    } else if (existingUser.email === adminUser.email) {
-      // If admin user exists, update it
-      await storage.setUser(adminUser);
-      console.log('Updated admin user');
-      return true;
+    // In a real app, verify admin credentials before creating admin user
+    if (email !== 'admin@campusconnect.com' || !password) {
+      return { success: false, error: 'Invalid admin credentials' };
     }
-    return false;
+    
+    await storage.setUser(adminUser);
+    console.log('Admin user created successfully');
+    return { success: true };
   } catch (error) {
-    console.error('Error initializing default admin:', error);
-    return false;
+    console.error('Error initializing admin user:', error);
+    return { success: false, error: 'Failed to create admin user' };
   }
 };
 
@@ -121,12 +116,18 @@ export const authService = {
         return { user: null, error: 'Please provide both email and password' };
       }
 
-      // Special case: If signing in with admin email, ensure admin user exists
+      // Special case: Admin login
       if (email.toLowerCase() === adminUser.email.toLowerCase()) {
-        await createDefaultAdmin();
-        const adminUserFromStorage = await storage.getUser();
-        if (adminUserFromStorage) {
-          return { user: adminUserFromStorage, error: null };
+        // In a real app, verify admin password with your backend
+        // For demo purposes, we'll use a simple check
+        if (password === 'admin123') { // CHANGE THIS IN PRODUCTION
+          // Clear any existing user data first
+          await storage.clearAll();
+          // Set admin user
+          await storage.setUser(adminUser);
+          return { user: adminUser, error: null };
+        } else {
+          return { user: null, error: 'Invalid admin credentials' };
         }
       }
 
@@ -212,21 +213,81 @@ export const authService = {
     }
   },
 
-  // Sign out
+  /**
+   * Signs out the current user and optionally signs in as a guest
+   * @param keepGuest Whether to sign in as a guest after sign out
+   * @returns Object with error message if any
+   */
   signOut: async (keepGuest: boolean = true): Promise<{ error: string | null }> => {
+    console.log('Starting sign out process, keepGuest:', keepGuest);
+    let currentUser: User | null = null;
+    
     try {
-      const currentUser = await storage.getUser();
-      await storage.clearAll();
+      // 1. Get current user before clearing anything
+      currentUser = await storage.getUser();
+      console.log('Current user before sign out:', currentUser?.email || 'none');
       
-      // If keepGuest is true and the current user isn't already a guest, sign in as guest
+      // 2. Clear storage in a specific order
+      try {
+        // Clear sensitive data first
+        await storage.clearAll();
+        console.log('Storage cleared successfully');
+        
+        // Clear any remaining user data from AsyncStorage
+        await AsyncStorage.multiRemove([
+          '@CampusConnect:user',
+          '@CampusConnect:token',
+          '@CampusConnect:session',
+        ]);
+        console.log('AsyncStorage cleared successfully');
+      } catch (storageError) {
+        console.warn('Error clearing storage:', storageError);
+        // Continue even if storage clearing fails
+      }
+      
+      // 3. Handle guest sign-in if needed
       if (keepGuest && currentUser?.role !== 'guest') {
-        await authService.signInAsGuest();
+        console.log('Attempting to sign in as guest');
+        try {
+          await authService.signInAsGuest();
+          console.log('Successfully signed in as guest');
+        } catch (guestError) {
+          console.error('Error signing in as guest after sign out:', guestError);
+          // Don't fail the sign out process if guest sign-in fails
+        }
+      } else {
+        console.log('Skipping guest sign-in');
       }
       
       return { error: null };
+      
     } catch (error) {
-      console.error('Error signing out:', error);
-      return { error: 'Failed to sign out. Please try again.' };
+      console.error('Unexpected error during sign out:', error);
+      
+      // Try to ensure we're in a clean state even if something went wrong
+      try {
+        await storage.clearAll();
+        await AsyncStorage.multiRemove([
+          '@CampusConnect:user',
+          '@CampusConnect:token',
+          '@CampusConnect:session',
+        ]);
+        
+        // If we were supposed to be a guest but had an error, try one last time
+        if (keepGuest && currentUser?.role !== 'guest') {
+          try {
+            await authService.signInAsGuest();
+          } catch (e) {
+            console.error('Final attempt to sign in as guest failed:', e);
+          }
+        }
+      } catch (cleanupError) {
+        console.error('Error during sign out cleanup:', cleanupError);
+      }
+      
+      return { 
+        error: 'An error occurred during sign out. Please try again.' 
+      };
     }
   },
 
