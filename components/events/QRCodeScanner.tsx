@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from 'react
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import CustomBarCodeScanner from './CustomBarCodeScanner';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { X, Check, RefreshCw } from 'lucide-react-native';
 
 interface QRCodeScannerProps {
@@ -58,52 +58,49 @@ export default function QRCodeScanner({ eventId, onClose, onSuccess }: QRCodeSca
         throw new Error('This QR code is for a different event');
       }
       
-      // Verify registration exists
-      const { data: registration, error: regError } = await supabase
-        .from('event_registrations')
-        .select('id, checked_in, users:user_id(name)')
-        .eq('id', qrData.registrationId)
-        .eq('event_id', eventId)
-        .eq('user_id', qrData.userId)
-        .single();
+      // Get all registrations
+      const registrations = await storage.getRegistrations();
       
-      if (regError || !registration) {
+      // Find the registration
+      const registration = registrations.find(
+        r => r.id === qrData.registrationId && 
+             r.eventId === eventId && 
+             r.userId === qrData.userId
+      );
+      
+      if (!registration) {
         throw new Error('Registration not found');
       }
       
       // Check if already checked in
-      if (registration.checked_in) {
+      if (registration.status === 'attended') {
+        const userProfile = await storage.getUserProfile(registration.userId);
         const result: CheckInResult = {
           success: false,
           message: 'Already checked in',
-          userName: registration.users?.name || 'Unknown',
+          userName: userProfile?.fullName || 'Unknown',
           timestamp: new Date().toISOString(),
         };
         onSuccess(result);
         return;
       }
       
-      // Mark as checked in
-      const { error: updateError } = await supabase
-        .from('event_registrations')
-        .update({ 
-          checked_in: true,
-          check_in_time: new Date().toISOString()
-        })
-        .eq('id', qrData.registrationId);
+      // Update registration status to attended
+      await storage.saveRegistration({
+        ...registration,
+        status: 'attended',
+      });
       
-      if (updateError) {
-        throw new Error('Failed to update check-in status');
-      }
+      // Get user profile for the success message
+      const userProfile = await storage.getUserProfile(registration.userId);
       
       // Success
       const result: CheckInResult = {
         success: true,
-        message: 'Successfully checked in',
-        userName: registration.users?.name || 'Unknown',
+        message: 'Check-in successful!',
+        userName: userProfile?.fullName || 'Guest',
         timestamp: new Date().toISOString(),
       };
-      
       onSuccess(result);
       
     } catch (error) {

@@ -10,7 +10,7 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 
 export default function ClearUsersScreen() {
   const { colors } = useTheme();
@@ -38,30 +38,17 @@ export default function ClearUsersScreen() {
             try {
               setIsLoading(true);
 
-              // First, delete all profiles
-              const { error: profilesError } = await supabase
-                .from('profiles')
-                .delete()
-                .neq('id', '');
+              // Clear all user data including profiles
+              await storage.clearAllData();
 
-              if (profilesError) {
-                console.error('Error deleting profiles:', profilesError);
-                throw profilesError;
-              }
-
-              // Then delete all auth users using RPC
-              const { error: authError } = await supabase
-                .rpc('delete_all_users');
-
-              if (authError) {
-                console.error('Error deleting auth users:', authError);
-                throw authError;
-              }
-
-              Alert.alert('Success', 'All users and profiles have been removed.');
-            } catch (error: any) {
+              // Clear all data including users and profiles
+              await storage.clearEverything();
+              
+              Alert.alert('Success', 'All users and profiles have been deleted.');
+              router.back();
+            } catch (error) {
               console.error('Error clearing users:', error);
-              Alert.alert('Error', error.message || 'Failed to clear users');
+              Alert.alert('Error', 'Failed to clear users. Please try again.');
             } finally {
               setIsLoading(false);
             }

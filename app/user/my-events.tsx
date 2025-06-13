@@ -14,32 +14,19 @@ import { Stack, router } from 'expo-router';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage, type Event, type Registration } from '@/lib/storage';
 import { ArrowLeft, Calendar, Clock, MapPin, Tag } from 'lucide-react-native';
 
 export default function MyEventsScreen() {
   const { colors } = useTheme(); 
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  // Define the registration and event interfaces
-  interface Event {
-    id: string;
-    name: string;
-    date: string;
-    time: string;
-    venue: string;
-    category: string;
-    image_url?: string;
-  }
 
-  interface Registration {
-    id: string;
-    status: 'registered' | 'attended' | 'cancelled';
-    created_at: string;
-    events: Event;
-  }
 
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  // Define a type for registration with event data
+  type RegistrationWithEvent = Registration & { event: Event };
+
+  const [registrations, setRegistrations] = useState<RegistrationWithEvent[]>([]);
   const [activeTab, setActiveTab] = useState('upcoming');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -59,36 +46,40 @@ export default function MyEventsScreen() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from('registrations')
-        .select(`
-          id,
-          status,
-          created_at,
-          events (id, name, date, time, venue, category, image_url)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Get all registrations for the current user
+      const allRegistrations = await storage.getRegistrationsByUser(user.id);
+      
+      // Get all events to match with registrations
+      const allEvents = await storage.getEvents();
+      
+      // Create a map of events for quick lookup
+      const eventsMap = new Map(allEvents.map(event => [event.id, event]));
+      
+      // Map registrations to include event data
+      const registrationsWithEvents = allRegistrations
+        .map(reg => {
+          const event = eventsMap.get(reg.eventId);
+          return event ? { ...reg, event } : null;
+        })
+        .filter((reg): reg is Registration & { event: Event } => reg !== null);
 
-      if (error) throw error;
-
-      // Filter based on active tab
+          // Filter based on active tab
       const today = new Date();
-      let filteredData: Registration[] = [];
+      let filteredData: Array<Registration & { event: Event }> = [];
 
       if (activeTab === 'upcoming') {
-        filteredData = data.filter((reg: Registration) => 
-          new Date(reg.events.date) >= today && reg.status !== 'cancelled'
+        filteredData = registrationsWithEvents.filter(reg => 
+          new Date(reg.event.date) >= today && reg.status !== 'cancelled'
         );
       } else if (activeTab === 'past') {
-        filteredData = data.filter((reg: Registration) => 
-          new Date(reg.events.date) < today && reg.status !== 'cancelled'
+        filteredData = registrationsWithEvents.filter(reg => 
+          new Date(reg.event.date) < today && reg.status !== 'cancelled'
         );
       } else if (activeTab === 'cancelled') {
-        filteredData = data.filter((reg: Registration) => reg.status === 'cancelled');
+        filteredData = registrationsWithEvents.filter(reg => reg.status === 'cancelled');
       }
 
-      setRegistrations(filteredData || []);
+      setRegistrations(filteredData);
     } catch (error) {
       console.error('Error loading user events:', error);
       Alert.alert('Error', 'Failed to load your events');
@@ -114,15 +105,15 @@ export default function MyEventsScreen() {
     }
   };
 
-  const renderEventItem = ({ item }: { item: Registration }): React.ReactElement => {
+  const renderEventItem = ({ item }: { item: RegistrationWithEvent }): React.ReactElement => {
     return (
       <TouchableOpacity
         style={[styles.eventCard, { backgroundColor: colors.card }]}
-        onPress={() => router.push(`/event-details/${item.events.id}`)}
+        onPress={() => router.push(`/event-details/${item.event.id}`)}
       >
         <Image
           source={{ 
-            uri: item.events.image_url || 'https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg' 
+            uri: item.event.imageUrl || 'https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg' 
           }}
           style={styles.eventImage}
         />
@@ -130,7 +121,7 @@ export default function MyEventsScreen() {
         <View style={styles.eventContent}>
           <View style={styles.eventHeader}>
             <Text style={[styles.eventName, { color: colors.text }]} numberOfLines={1}>
-              {item.events.name}
+              {item.event.title}
             </Text>
             <View 
               style={[
@@ -148,21 +139,21 @@ export default function MyEventsScreen() {
             <View style={styles.eventDetailItem}>
               <Calendar size={16} color={colors.primary} style={styles.detailIcon} />
               <Text style={[styles.detailText, { color: colors.text }]}>
-                {format(new Date(item.events.date), 'MMM d, yyyy')}
+                {format(new Date(item.event.date), 'MMM d, yyyy')}
               </Text>
             </View>
             
             <View style={styles.eventDetailItem}>
               <Clock size={16} color={colors.primary} style={styles.detailIcon} />
               <Text style={[styles.detailText, { color: colors.text }]}>
-                {item.events.time}
+                {item.event.time}
               </Text>
             </View>
             
             <View style={styles.eventDetailItem}>
               <MapPin size={16} color={colors.primary} style={styles.detailIcon} />
               <Text style={[styles.detailText, { color: colors.text }]} numberOfLines={1}>
-                {item.events.venue}
+                {item.event.location}
               </Text>
             </View>
           </View>
@@ -171,7 +162,7 @@ export default function MyEventsScreen() {
             {activeTab === 'upcoming' && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                onPress={() => router.push(`/check-in/${item.events.id}`)}
+                onPress={() => router.push(`/check-in/${item.event.id}`)}
               >
                 <Text style={styles.actionButtonText}>View QR</Text>
               </TouchableOpacity>
@@ -180,7 +171,7 @@ export default function MyEventsScreen() {
             {activeTab === 'past' && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-                onPress={() => router.push(`/event-feedback/${item.events.id}`)}
+                onPress={() => router.push(`/event-feedback/${item.event.id}`)}
               >
                 <Text style={styles.actionButtonText}>Feedback</Text>
               </TouchableOpacity>
@@ -189,7 +180,7 @@ export default function MyEventsScreen() {
             {activeTab === 'cancelled' && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                onPress={() => router.push(`/event-details/${item.events.id}`)}
+                onPress={() => router.push(`/event-details/${item.event.id}`)}
               >
                 <Text style={styles.actionButtonText}>View Details</Text>
               </TouchableOpacity>

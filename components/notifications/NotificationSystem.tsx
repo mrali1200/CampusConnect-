@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 // Using type-only import to avoid runtime errors if the module isn't installed yet
 import type * as DeviceType from 'expo-device';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import Constants from 'expo-constants';
 
 // Configure notification handler
@@ -60,19 +60,16 @@ export default function NotificationSystem({ children }: NotificationSystemProps
 
   const updatePushToken = async (userId: string, token: string) => {
     try {
-      const { error } = await supabase
-        .from('user_push_tokens')
-        .upsert(
-          {
-            user_id: userId,
-            push_token: token,
-            device_type: Platform.OS,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
-
-      if (error) throw error;
+      // In a real app, you would send this token to your server
+      // For local storage, we'll just store it for demonstration
+      console.log('Push token updated:', { userId, token, deviceType: Platform.OS });
+      
+      // Store the token in local storage
+      await storage.setUserPushToken(userId, {
+        userId,
+        pushToken: token,
+        deviceType: Platform.OS,
+      });
     } catch (err) {
       console.error('Error updating push token:', err);
     }

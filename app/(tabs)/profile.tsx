@@ -8,11 +8,18 @@ import { getRegisteredEvents, clearAllData } from '@/services/storage';
 import { Event } from '@/types';
 import { ChevronRight, LogOut, Moon, Sun, User, UserCog, Calendar, Settings } from 'lucide-react-native';
 
-export default function ProfileScreen() {
+interface ProfileScreenProps {}
+
+export default function ProfileScreen({}: ProfileScreenProps) {
   const { colors, isDark, theme, setTheme } = useTheme();
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, isGuest, signOut } = useAuth();
   const [registeredEvents, setRegisteredEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Determine the display name and email
+  const displayName = profile?.fullName || user?.fullName || 'Guest User';
+  const displayEmail = isGuest ? 'Guest User' : (user?.email || 'Not signed in');
+  const avatarUrl = profile?.avatarUrl || user?.avatarUrl || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff';
 
   useEffect(() => {
     loadRegisteredEvents();
@@ -68,6 +75,16 @@ export default function ProfileScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,
+          headerRight: () => (
+            user && (
+              <TouchableOpacity 
+                onPress={handleSignOut}
+                style={{ marginRight: 16 }}
+              >
+                <LogOut size={24} color={colors.text} />
+              </TouchableOpacity>
+            )
+          ),
         }}
       />
 
@@ -75,20 +92,21 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <Image
-            source={{ 
-              uri: profile?.avatar_url || 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' 
-            }}
+            source={{ uri: avatarUrl }}
             style={styles.profileImage}
+            accessibilityLabel={`${displayName}'s profile picture`}
           />
           <Text style={[styles.profileName, { color: colors.text }]}>
-            {profile?.full_name || 'Guest User'}
+            {displayName}
           </Text>
           <Text style={[styles.profileDetail, { color: colors.subtext }]}>
-            {profile?.email || user?.email || 'Not signed in'}
+            {displayEmail}
           </Text>
-          {isAdmin && (
-            <View style={[styles.adminBadge, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.adminBadgeText, { color: colors.primary }]}>Admin</Text>
+          {isAdmin && !isGuest && (
+            <View style={[styles.adminBadge, { backgroundColor: `${colors.primary}20` }]}>
+              <Text style={[styles.adminBadgeText, { color: colors.primary }]}>
+                Admin
+              </Text>
             </View>
           )}
         </View>

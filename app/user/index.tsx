@@ -10,7 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
@@ -43,17 +43,18 @@ export default function UserDashboardScreen() {
   });
   const [upcomingRegistrations, setUpcomingRegistrations] = useState<Registration[]>([]);
 
-  useEffect(() => {
-    if (!user) {
-      Alert.alert('Authentication Required', 'Please sign in to access your dashboard.');
-      router.replace('/sign-in');
-      return;
-    }
-
-    loadUserDashboard();
-  }, [user]);
-
-
+  // Load user data when the screen comes into focus or when user changes
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!user) {
+        Alert.alert('Authentication Required', 'Please sign in to access your dashboard.');
+        router.replace('/sign-in');
+        return;
+      }
+      
+      loadUserDashboard();
+    }, [user])
+  );
 
   const loadUserDashboard = async (): Promise<void> => {
     if (!user) return;

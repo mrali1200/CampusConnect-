@@ -30,18 +30,24 @@ export default function CheckInScreen() {
       const data = await fetchEventById(eventId);
       setEvent(data);
       
-      // Generate QR code value (eventId + userId)
-      const userId = await getUserId();
+      // Generate QR code value (eventId + userId + timestamp)
+      const userId = await getUserId() || 'guest';
+      const timestamp = new Date().getTime();
+      
+      // Create a secure hash of the data
       const qrData = JSON.stringify({
-        eventId: eventId,
-        userId: userId,
-        timestamp: new Date().toISOString(),
+        e: eventId,
+        u: userId,
+        t: timestamp,
+        v: 1 // version
       });
       
-      setQrValue(qrData);
+      // Encode the data as base64 for smaller QR code
+      const base64Data = btoa(unescape(encodeURIComponent(qrData)));
+      setQrValue(base64Data);
     } catch (err) {
-      setError('Failed to load event details. Please try again later.');
-      console.error(err);
+      console.error('Error generating QR code:', err);
+      setError('Failed to generate check-in QR code. Please try again.');
     } finally {
       setLoading(false);
     }

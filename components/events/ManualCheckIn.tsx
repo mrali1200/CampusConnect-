@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { X, Check } from 'lucide-react-native';
 
 interface ManualCheckInProps {
@@ -33,48 +33,45 @@ export default function ManualCheckIn({ eventId, onClose, onSuccess }: ManualChe
       setLoading(true);
       setError(null);
       
-      // Find the registration with this code
-      const { data: registration, error: regError } = await supabase
-        .from('event_registrations')
-        .select('*, users:user_id(name)')
-        .eq('id', registrationCode)
-        .eq('event_id', eventId)
-        .single();
+      // Get all registrations
+      const registrations = await storage.getRegistrations();
       
-      if (regError || !registration) {
+      // Find the registration with this code and event ID
+      const registration = registrations.find(
+        r => r.id === registrationCode && r.eventId === eventId
+      );
+      
+      if (!registration) {
         throw new Error('Registration not found');
       }
       
       // Check if already checked in
-      if (registration.checked_in) {
+      if (registration.status === 'attended') {
+        const userProfile = await storage.getUserProfile(registration.userId);
         const result: CheckInResult = {
           success: false,
           message: 'Already checked in',
-          userName: registration.users?.name || 'Unknown',
+          userName: userProfile?.fullName || 'Guest',
           timestamp: new Date().toISOString(),
         };
         onSuccess(result);
         return;
       }
       
-      // Mark as checked in
-      const { error: updateError } = await supabase
-        .from('event_registrations')
-        .update({ 
-          checked_in: true,
-          check_in_time: new Date().toISOString()
-        })
-        .eq('id', registrationCode);
+      // Update registration status to attended
+      await storage.saveRegistration({
+        ...registration,
+        status: 'attended',
+      });
       
-      if (updateError) {
-        throw new Error('Failed to update check-in status');
-      }
+      // Get user profile for the success message
+      const userProfile = await storage.getUserProfile(registration.userId);
       
       // Success
       const result: CheckInResult = {
         success: true,
-        message: 'Successfully checked in',
-        userName: registration.users?.name || 'Unknown',
+        message: 'Check-in successful!',
+        userName: userProfile?.fullName || 'Guest',
         timestamp: new Date().toISOString(),
       };
       

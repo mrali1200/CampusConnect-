@@ -12,14 +12,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { PlusCircle, Users, Calendar, LogOut, ArrowLeft } from 'lucide-react-native'; 
 
 export default function AdminDashboardScreen() {
   const { colors } = useTheme();
   const { signOut, isAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
+  interface DashboardStats {
+    totalEvents: number;
+    totalUsers: number;
+    totalRegistrations: number;
+    upcomingEvents: number;
+  }
+
+  const [stats, setStats] = useState<DashboardStats>({
     totalEvents: 0,
     totalUsers: 0,
     totalRegistrations: 0,
@@ -41,41 +48,36 @@ export default function AdminDashboardScreen() {
     try {
       setLoading(true);
 
-      // Get total events count
-      const { count: eventsCount, error: eventsError } = await supabase
-        .from('events')
-        .select('*', { count: 'exact', head: true });
+      // Define event interface for type safety
+      interface EventItem {
+        id: string;
+        date: string;
+        [key: string]: any; // Allow additional properties
+      }
 
-      if (eventsError) throw eventsError;
+      // Get all data from local storage with proper types
+      const [eventsData, usersData, registrationsData] = await Promise.all([
+        storage.getData<EventItem[]>('events'),
+        storage.getData<any[]>('users'),
+        storage.getData<any[]>('registrations')
+      ]);
 
-      // Get total users count
-      const { count: usersCount, error: usersError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+      // Ensure we have arrays, default to empty arrays if null/undefined
+      const events: EventItem[] = Array.isArray(eventsData) ? eventsData : [];
+      const users = Array.isArray(usersData) ? usersData : [];
+      const registrations = Array.isArray(registrationsData) ? registrationsData : [];
 
-      if (usersError) throw usersError;
-
-      // Get total registrations count
-      const { count: registrationsCount, error: registrationsError } = await supabase
-        .from('registrations')
-        .select('*', { count: 'exact', head: true });
-
-      if (registrationsError) throw registrationsError;
-
-      // Get upcoming events count
+      // Calculate upcoming events (events with date >= today)
       const today = new Date().toISOString().split('T')[0];
-      const { count: upcomingCount, error: upcomingError } = await supabase
-        .from('events')
-        .select('*', { count: 'exact', head: true })
-        .gte('date', today);
-
-      if (upcomingError) throw upcomingError;
+      const upcomingEvents = events.filter((event: EventItem) => 
+        event?.date && new Date(event.date) >= new Date(today)
+      );
 
       setStats({
-        totalEvents: eventsCount || 0,
-        totalUsers: usersCount || 0,
-        totalRegistrations: registrationsCount || 0,
-        upcomingEvents: upcomingCount || 0,
+        totalEvents: events?.length || 0,
+        totalUsers: users?.length || 0,
+        totalRegistrations: registrations?.length || 0,
+        upcomingEvents: upcomingEvents?.length || 0,
       });
     } catch (error) {
       console.error('Error loading dashboard stats:', error);

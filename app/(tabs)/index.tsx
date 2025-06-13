@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Animated, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import EventList from '@/components/events/EventList';
 import SearchFilterBar from '@/components/events/SearchFilterBar';
-import { fetchEvents } from '@/services/api';
+import { storage } from '@/lib/storage';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Event } from '@/types';
+type Event = import('@/lib/storage').Event;
 import { Search, Tag, SlidersHorizontal } from 'lucide-react-native';
 
 // Categories for filtering events
@@ -47,14 +47,17 @@ export default function HomeScreen() {
     extrapolate: 'clamp'
   });
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
+  // Load events on initial mount and when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadEvents();
+    }, [])
+  );
 
   const loadEvents = async () => {
     setLoading(true);
     try {
-      const data = await fetchEvents();
+      const data = await storage.getEvents();
       setEvents(data);
       setFilteredEvents(data);
     } catch (err) {
@@ -77,15 +80,15 @@ export default function HomeScreen() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (event) =>
-          event.name.toLowerCase().includes(query) ||
-          event.venue.toLowerCase().includes(query) ||
-          event.description.toLowerCase().includes(query)
+          event.title.toLowerCase().includes(query) ||
+          event.location.toLowerCase().includes(query) ||
+          (event.description || '').toLowerCase().includes(query)
       );
     }
 
     // Apply category filter
     if (selectedCategory) {
-      filtered = filtered.filter((event) => event.category === selectedCategory);
+      filtered = filtered.filter((event) => event.category === selectedCategory || selectedCategory === 'All');
     }
 
     // Apply date range filter
@@ -116,7 +119,8 @@ export default function HomeScreen() {
     if (sortOption === 'newest') {
       filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     } else if (sortOption === 'popular') {
-      filtered.sort((a, b) => b.popularity - a.popularity);
+      // Sort by date as a fallback for popularity since we don't track popularity in local storage
+      filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
 
     setFilteredEvents(filtered);

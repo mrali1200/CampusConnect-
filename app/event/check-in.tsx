@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal, Platform
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import ManualCheckIn from '@/components/events/ManualCheckIn';
 import QRCodeScanner from '@/components/events/QRCodeScanner';
 import CheckInConfirmation from '@/components/events/CheckInConfirmation';
@@ -35,16 +35,15 @@ function EventCheckInScreen() {
 
   const checkOrganizerStatus = async () => {
     try {
-      // In a real app, you would check if the user is an organizer or admin
-      // For this example, we'll simulate by checking a role in the database
-      const { data, error } = await supabase
-        .from('event_organizers')
-        .select('id')
-        .eq('event_id', eventId)
-        .eq('user_id', user?.id)
-        .single();
-
-      setIsOrganizer(!!data);
+      // Check if user is an organizer for this event from local storage
+      const events = await storage.getEvents();
+      const event = events.find(e => e.id === eventId);
+      
+      if (event && user) {
+        // Check if the current user is the creator of this event
+        const isUserOrganizer = event.creatorId === user.id;
+        setIsOrganizer(isUserOrganizer);
+      }
     } catch (err) {
       console.error('Error checking organizer status:', err);
     }

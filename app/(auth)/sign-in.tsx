@@ -24,18 +24,36 @@ export default function SignInScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields');
+    // Clear previous errors
+    setError('');
+    
+    // Basic validation
+    if (!email?.trim()) {
+      setError('Please enter your email');
+      return;
+    }
+    
+    if (!password) {
+      setError('Please enter your password');
       return;
     }
 
     try {
       setIsLoading(true);
-      setError('');
-      await signIn(email, password);
+      console.log('Attempting to sign in...');
+      
+      const { user, session } = await signIn(email, password);
+      
+      if (!user || !session) {
+        console.error('Sign in failed: No user or session returned');
+        setError('Failed to sign in. Please check your credentials and try again.');
+      } else {
+        console.log('Sign in successful, navigating to home...');
+        // The AuthProvider will handle the navigation
+      }
     } catch (err) {
-      setError('Invalid email or password');
-      console.error('Sign in error:', err);
+      console.error('Unexpected error during sign in:', err);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }

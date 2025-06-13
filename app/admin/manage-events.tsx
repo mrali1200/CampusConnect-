@@ -14,7 +14,7 @@ import { Stack, router } from 'expo-router';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { ArrowLeft, Edit, Trash2, Calendar, MapPin, Clock, Tag } from 'lucide-react-native';
 
 export default function ManageEventsScreen() {
@@ -33,6 +33,9 @@ export default function ManageEventsScreen() {
     category: string;
     capacity: number;
     image_url?: string;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
   }
 
   const [events, setEvents] = useState<Event[]>([]);
@@ -53,14 +56,14 @@ export default function ManageEventsScreen() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('date', { ascending: true });
+      // Get events from local storage
+      const eventsData = await storage.getData<Event[]>('events');
+      
+      // Sort events by date (ascending)
+      const sortedEvents = (Array.isArray(eventsData) ? eventsData : [])
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      if (error) throw error;
-
-      setEvents(data || []);
+      setEvents(sortedEvents);
     } catch (error) {
       console.error('Error loading events:', error);
       Alert.alert('Error', 'Failed to load events');
@@ -76,7 +79,11 @@ export default function ManageEventsScreen() {
   };
 
   const handleEditEvent = (eventId: string): void => {
-    router.push(`/admin/edit-event/${eventId}`);
+    // Using push with object syntax to avoid type issues
+    router.push({
+      pathname: '/admin/edit-event/[id]',
+      params: { id: eventId }
+    } as any);
   };
 
   const handleDeleteEvent = async (eventId: string): Promise<void> => {
@@ -92,28 +99,38 @@ export default function ManageEventsScreen() {
             try {
               setLoading(true);
 
-              // First delete all registrations for this event
-              const { error: regError } = await supabase
-                .from('registrations')
-                .delete()
-                .eq('event_id', eventId);
+              // Get current registrations and events
+              const [registrationsData, eventsData] = await Promise.all([
+                storage.getData<Array<{event_id: string}>>('registrations'),
+                storage.getData<Event[]>('events')
+              ]);
 
-              if (regError) throw regError;
+              // Ensure we have arrays
+              const registrations = Array.isArray(registrationsData) ? registrationsData : [];
+              const events = Array.isArray(eventsData) ? eventsData : [];
 
-              // Then delete the event
-              const { error } = await supabase
-                .from('events')
-                .delete()
-                .eq('id', eventId);
+              // Filter out registrations for this event
+              const updatedRegistrations = registrations.filter(
+                reg => reg && reg.event_id !== eventId
+              );
 
-              if (error) throw error;
+              // Filter out the event
+              const updatedEvents = events.filter(event => event && event.id !== eventId);
 
-              // Update the local state
-              setEvents(events.filter(event => event.id !== eventId));
-              Alert.alert('Success', 'Event deleted successfully');
+              // Save updated data
+              await Promise.all([
+                storage.setData('registrations', updatedRegistrations),
+                storage.setData('events', updatedEvents)
+              ]);
+
+              // Refresh the events list
+              loadEvents();
+
+              // Show success message
+              Alert.alert('Success', 'Event and all related registrations have been deleted.');
             } catch (error) {
               console.error('Error deleting event:', error);
-              Alert.alert('Error', 'Failed to delete event');
+              Alert.alert('Error', 'Failed to delete event. Please try again.');
             } finally {
               setLoading(false);
             }

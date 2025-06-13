@@ -1,30 +1,27 @@
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/types/supabase';
-import 'react-native-url-polyfill/auto';
-import Constants from 'expo-constants';
+// This is a dummy implementation of supabase client for compatibility
+// during the migration to local storage.
+// TODO: Remove this file once all supabase references are replaced with local storage
 
-// Get the Supabase configuration from Expo Constants
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+type SupabaseClient = {
+  // Add any methods that are actually used in your codebase
+  // This is a minimal implementation to satisfy TypeScript
+  rpc: (fn: string, params?: any) => {
+    data: any;
+    error: Error | null;
+  };
+  from: (table: string) => {
+    delete: () => Promise<{ error: Error | null }>;
+  };
+};
 
-// Debug: Log the configuration
-console.log('Supabase Configuration:', {
-  url: supabaseUrl,
-  keyExists: supabaseAnonKey ? 'Yes' : 'No',
-  constantsExtra: Constants.expoConfig?.extra
-});
+export const supabase: SupabaseClient = {
+  rpc: () => ({
+    data: null,
+    error: new Error('Supabase is not available in this version'),
+  }),
+  from: () => ({
+    delete: async () => ({ error: new Error('Supabase is not available in this version') }),
+  }),
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase configuration. Please check your .env file and app.config.js'
-  );
-}
-
-// Initialize the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false
-  }
-});
+export default supabase;

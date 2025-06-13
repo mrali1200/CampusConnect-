@@ -1,41 +1,28 @@
+import { storage } from '@/lib/storage';
 import { Event } from '@/types';
 
-// Temporary mock data for events
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    name: 'Welcome Week Orientation',
-    description: 'Join us for the campus welcome week orientation!',
-    date: new Date().toISOString(),
-    time: '10:00',
-    venue: 'Main Auditorium',
-    category: 'Academic',
-    popularity: 100,
-    imageUrl: 'https://picsum.photos/400/300',
-    organizer: 'Student Affairs Office'
-  },
-  {
-    id: '2',
-    name: 'Campus Sports Day',
-    description: 'Annual sports day with various competitions',
-    date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-    time: '14:00',
-    venue: 'Sports Complex',
-    category: 'Sports',
-    popularity: 85,
-    imageUrl: 'https://picsum.photos/400/300',
-    organizer: 'Athletics Department'
-  }
-];
+// Fallback image URL
+const FALLBACK_IMAGE_URL = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
 
 /**
  * Fetch all events
  * @returns {Promise<Event[]>} List of all events
  */
 export const fetchEvents = async (): Promise<Event[]> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return mockEvents;
+  try {
+    const events = await storage.getEvents();
+    // Ensure each event has an image URL
+    return events.map(event => ({
+      ...event,
+      imageUrl: event.imageUrl || FALLBACK_IMAGE_URL,
+      venue: event.venue || event.location || 'TBD',
+      time: event.time || '10:00 AM',
+      category: event.category || 'General'
+    }));
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    return [];
+  }
 };
 
 /**
@@ -44,14 +31,22 @@ export const fetchEvents = async (): Promise<Event[]> => {
  * @returns {Promise<Event>} The event with the specified ID
  */
 export const fetchEventById = async (id: string): Promise<Event> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  const event = mockEvents.find(event => event.id === id);
-  
-  if (!event) {
-    throw new Error(`Event with ID ${id} not found`);
+  try {
+    const event = await storage.getEvent(id);
+    if (!event) {
+      throw new Error('Event not found');
+    }
+    
+    // Ensure the event has required fields
+    return {
+      ...event,
+      imageUrl: event.imageUrl || FALLBACK_IMAGE_URL,
+      venue: event.venue || event.location || 'TBD',
+      time: event.time || '10:00 AM',
+      category: event.category || 'General'
+    };
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    throw new Error('Failed to fetch event');
   }
-  
-  return event;
 };

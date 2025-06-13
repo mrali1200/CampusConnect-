@@ -9,13 +9,13 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { Event } from '@/types';
-import CommentSection from '@/components/social/CommentSection';
+import { storage, type Event } from '@/lib/storage';
+import LocalCommentSection from '@/components/social/LocalCommentSection';
 import ShareEventModal from '@/components/social/ShareEventModal';
 import CalendarIntegration from '@/components/calendar/CalendarIntegration';
 import { scheduleEventReminder } from '@/components/notifications/NotificationSystem';
@@ -50,53 +50,46 @@ export default function EventDetailScreen() {
       setError(null);
 
       // Fetch event details
-      const { data, error } = await supabase
-        .from('events')
-        .select('*, categories(*)')
-        .eq('id', id)
-        .single();
+      const eventData = await storage.getEvent(id);
+      if (!eventData) throw new Error('Event not found');
+      
+      // Use the event data directly since it's already in the correct format from storage
+      const formattedEvent: Event = {
+        ...eventData,
+        title: eventData.title || 'Untitled Event',
+        description: eventData.description || '',
+        date: eventData.date || new Date().toISOString().split('T')[0],
+        time: eventData.time || '12:00',
+        location: eventData.location || 'TBD',
+        category: eventData.category || 'general',
+        capacity: eventData.capacity || 0,
+        imageUrl: eventData.imageUrl || 'https://via.placeholder.com/400x300',
+        creatorId: eventData.creatorId || '',
+        createdAt: eventData.createdAt || new Date().toISOString(),
+        updatedAt: eventData.updatedAt || new Date().toISOString(),
+      };
 
-      if (error) throw error;
+      setEvent(formattedEvent);
 
-      setEvent(data);
-
-      // Check if user is registered
+      // Check if user is registered and get counts
       if (user) {
-        const { data: registrationData } = await supabase
-          .from('event_registrations')
-          .select('id')
-          .eq('event_id', id)
-          .eq('user_id', user.id)
-          .single();
+        // Get all registrations for this event
+        const registrations = await storage.getRegistrationsByEvent(id);
+        const userRegistration = registrations.find(r => r.userId === user.id);
+        
+        setIsRegistered(!!userRegistration);
+        setRegistrationCount(registrations.length);
 
-        setIsRegistered(!!registrationData);
-
-        // Check if user has liked the event
-        const { data: likeData } = await supabase
-          .from('event_likes')
-          .select('id')
-          .eq('event_id', id)
-          .eq('user_id', user.id)
-          .single();
-
-        setIsLiked(!!likeData);
+        // For simplicity, we'll use the same registration status for likes
+        // In a real app, you might have a separate likes system
+        setIsLiked(!!userRegistration?.status && userRegistration.status === 'attended');
+        setLikesCount(registrations.filter(r => r.status === 'attended').length);
+      } else {
+        // If not logged in, just get the counts
+        const registrations = await storage.getRegistrationsByEvent(id);
+        setRegistrationCount(registrations.length);
+        setLikesCount(registrations.filter(r => r.status === 'attended').length);
       }
-
-      // Get registration count
-      const { count: regCount } = await supabase
-        .from('event_registrations')
-        .select('id', { count: 'exact' })
-        .eq('event_id', id);
-
-      setRegistrationCount(regCount || 0);
-
-      // Get likes count
-      const { count: likesCountData } = await supabase
-        .from('event_likes')
-        .select('id', { count: 'exact' })
-        .eq('event_id', id);
-
-      setLikesCount(likesCountData || 0);
 
     } catch (err) {
       console.error('Error loading event:', err);
@@ -113,45 +106,36 @@ export default function EventDetailScreen() {
     }
 
     try {
+      setLoading(true);
+
       if (isRegistered) {
-        // Unregister
-        await supabase
-          .from('event_registrations')
-          .delete()
-          .eq('event_id', id)
-          .eq('user_id', user.id);
+        // Unregister from event
+        const registrations = await storage.getRegistrations();
+        const userRegistration = registrations.find(
+          r => r.eventId === id && r.userId === user.id
+        );
 
-        setIsRegistered(false);
-        setRegistrationCount(Math.max(0, registrationCount - 1));
+        if (userRegistration) {
+          await storage.deleteRegistration(userRegistration.id);
+          setRegistrationCount(prev => prev - 1);
+          setIsRegistered(false);
+        }
       } else {
-        // Register
-        await supabase
-          .from('event_registrations')
-          .insert({
-            event_id: id,
-            user_id: user.id,
-            created_at: new Date().toISOString(),
-          });
-
-        // Create an activity entry
-        await supabase.from('activities').insert({
-          user_id: user.id,
-          activity_type: 'registration',
-          event_id: id,
-          created_at: new Date().toISOString(),
+        // Register for event
+        await storage.saveRegistration({
+          eventId: id,
+          userId: user.id,
+          status: 'registered',
         });
 
+        setRegistrationCount(prev => prev + 1);
         setIsRegistered(true);
-        setRegistrationCount(registrationCount + 1);
-
-        // Schedule a reminder notification if the event has a date
-        if (event?.date) {
-          const eventDate = new Date(event.date);
-          await scheduleEventReminder(id, event.name, eventDate);
-        }
       }
     } catch (err) {
-      console.error('Error registering for event:', err);
+      console.error('Error updating registration:', err);
+      Alert.alert('Error', 'Failed to update registration. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -162,39 +146,47 @@ export default function EventDetailScreen() {
     }
 
     try {
+      setLoading(true);
+      
+      // Get existing registration or create a new one
+      const registrations = await storage.getRegistrations();
+      const userRegistration = registrations.find(
+        r => r.eventId === id && r.userId === user.id
+      );
+
       if (isLiked) {
-        // Unlike
-        await supabase
-          .from('event_likes')
-          .delete()
-          .eq('event_id', id)
-          .eq('user_id', user.id);
-
-        setIsLiked(false);
-        setLikesCount(Math.max(0, likesCount - 1));
-      } else {
-        // Like
-        await supabase
-          .from('event_likes')
-          .insert({
-            event_id: id,
-            user_id: user.id,
-            created_at: new Date().toISOString(),
+        // Unlike the event by setting status back to registered
+        if (userRegistration) {
+          await storage.saveRegistration({
+            ...userRegistration,
+            status: 'registered',
           });
-
-        // Create an activity entry
-        await supabase.from('activities').insert({
-          user_id: user.id,
-          activity_type: 'like',
-          event_id: id,
-          created_at: new Date().toISOString(),
-        });
-
-        setIsLiked(true);
-        setLikesCount(likesCount + 1);
+          setLikesCount(prev => Math.max(0, prev - 1));
+        }
+      } else {
+        // Like the event by setting status to attended
+        if (userRegistration) {
+          await storage.saveRegistration({
+            ...userRegistration,
+            status: 'attended',
+          });
+        } else {
+          // If no registration exists, create one
+          await storage.saveRegistration({
+            eventId: id,
+            userId: user.id,
+            status: 'attended',
+          });
+        }
+        setLikesCount(prev => prev + 1);
       }
+      
+      setIsLiked(!isLiked);
     } catch (err) {
-      console.error('Error liking event:', err);
+      console.error('Error updating like:', err);
+      Alert.alert('Error', 'Failed to update like. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -263,18 +255,18 @@ export default function EventDetailScreen() {
             <Text style={[styles.commentsTitle, { color: colors.text }]}>Comments</Text>
             <View style={{ width: 80 }} /> {/* Spacer for alignment */}
           </View>
-          <CommentSection eventId={id} />
+          <LocalCommentSection eventId={id} onCommentAdded={() => {}} />
         </View>
       ) : (
         <ScrollView style={styles.scrollView}>
           <Image
-            source={{ uri: event.image_url || 'https://via.placeholder.com/400x200?text=Event+Image' }}
+            source={{ uri: event.imageUrl || 'https://via.placeholder.com/400x200?text=Event+Image' }}
             style={[styles.eventImage, { width }]}
             resizeMode="cover"
           />
 
           <View style={styles.contentContainer}>
-            <Text style={[styles.eventTitle, { color: colors.text }]}>{event.name}</Text>
+            <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title}</Text>
 
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
@@ -317,7 +309,7 @@ export default function EventDetailScreen() {
 
               <View style={styles.detailRow}>
                 <MapPin size={18} color={colors.primary} style={styles.detailIcon} />
-                <Text style={[styles.detailText, { color: colors.text }]}>{event.venue}</Text>
+                <Text style={[styles.detailText, { color: colors.text }]}>{event.location}</Text>
               </View>
             </View>
 
@@ -368,8 +360,8 @@ export default function EventDetailScreen() {
 
             <View style={styles.integrationContainer}>
               <CalendarIntegration
-                eventName={event.name}
-                eventLocation={event.venue}
+                eventName={event.title}
+                eventLocation={event.location}
                 eventDescription={event.description}
                 startDate={eventDate}
                 endDate={eventEndDate}
@@ -382,7 +374,7 @@ export default function EventDetailScreen() {
                   style={[styles.qrCodeButton, { backgroundColor: colors.card, borderColor: colors.border }]}
                   onPress={() => router.push({
                     pathname: '/event/check-in',
-                    params: { eventId: id, eventName: event.name }
+                    params: { eventId: id, eventName: event.title }
                   })}
                 >
                   <QrCode size={20} color={colors.primary} style={styles.qrCodeIcon} />

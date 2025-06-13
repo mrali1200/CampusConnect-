@@ -17,7 +17,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext'; 
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
+import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, Calendar, Clock, MapPin, Tag, Info, Image as ImageIcon } from 'lucide-react-native';
 
 const CATEGORIES = [
@@ -113,32 +114,38 @@ export default function CreateEventScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm() || !user) return;
 
     try {
       setLoading(true);
 
-      const eventData = {
+      // Get existing events
+      const existingEvents = await storage.getData<Array<any>>('events') || [];
+      
+      // Create new event with a unique ID
+      const newEvent = {
+        id: `event-${uuidv4()}`,
         name: formData.name,
         description: formData.description,
         date: format(formData.date, 'yyyy-MM-dd'),
         time: formData.time,
         venue: formData.venue,
         category: formData.category,
-        image_url: formData.image_url,
+        imageUrl: formData.image_url,
         organizer: formData.organizer || 'ConnectCampus+',
-        created_by: user?.id,
+        created_by: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        attendees: [],
+        attendee_count: 0,
+        is_active: true
       };
 
-      const { data, error } = await supabase
-        .from('events')
-        .insert(eventData)
-        .select()
-        .single();
-
-      if (error) throw error;
+      // Add new event to the beginning of the array (most recent first)
+      const updatedEvents = [newEvent, ...existingEvents];
+      
+      // Save to local storage
+      await storage.setData('events', updatedEvents);
 
       Alert.alert(
         'Success',

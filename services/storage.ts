@@ -59,6 +59,112 @@ export const saveUserPreferences = async (preferences: string[]): Promise<void> 
   }
 };
 
+// Feedback storage
+const FEEDBACK_KEY = 'event_feedback';
+const COMMENT_REACTIONS_KEY = 'comment_reactions';
+
+export interface Feedback {
+  id: string;
+  eventId: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommentReaction {
+  id: string;
+  commentId: string;
+  userId: string;
+  type: 'like' | 'heart' | 'thumbsUp';
+  createdAt: string;
+}
+
+// Feedback functions
+export const saveFeedback = async (feedback: Omit<Feedback, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<Feedback> => {
+  try {
+    const storedFeedbacks = await AsyncStorage.getItem(FEEDBACK_KEY);
+    const feedbacks: Feedback[] = storedFeedbacks ? JSON.parse(storedFeedbacks) : [];
+    
+    const now = new Date().toISOString();
+    const newFeedback: Feedback = {
+      ...feedback,
+      id: feedback.id || Date.now().toString(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    const updatedFeedbacks = [...feedbacks.filter(f => f.id !== feedback.id), newFeedback];
+    await AsyncStorage.setItem(FEEDBACK_KEY, JSON.stringify(updatedFeedbacks));
+    
+    return newFeedback;
+  } catch (error) {
+    console.error('Error saving feedback:', error);
+    throw error;
+  }
+};
+
+export const getFeedbackForEvent = async (eventId: string): Promise<Feedback[]> => {
+  try {
+    const storedFeedbacks = await AsyncStorage.getItem(FEEDBACK_KEY);
+    const feedbacks: Feedback[] = storedFeedbacks ? JSON.parse(storedFeedbacks) : [];
+    return feedbacks.filter(feedback => feedback.eventId === eventId);
+  } catch (error) {
+    console.error('Error getting feedback:', error);
+    return [];
+  }
+};
+
+export const saveCommentReaction = async (reaction: Omit<CommentReaction, 'id' | 'createdAt'> & { id?: string }): Promise<CommentReaction> => {
+  try {
+    const storedReactions = await AsyncStorage.getItem(COMMENT_REACTIONS_KEY);
+    const reactions: CommentReaction[] = storedReactions ? JSON.parse(storedReactions) : [];
+    
+    // Remove any existing reaction from the same user to the same comment
+    const filteredReactions = reactions.filter(
+      r => !(r.userId === reaction.userId && r.commentId === reaction.commentId)
+    );
+    
+    const now = new Date().toISOString();
+    const newReaction: CommentReaction = {
+      ...reaction,
+      id: reaction.id || Date.now().toString(),
+      createdAt: now,
+    };
+    
+    const updatedReactions = [...filteredReactions, newReaction];
+    await AsyncStorage.setItem(COMMENT_REACTIONS_KEY, JSON.stringify(updatedReactions));
+    
+    return newReaction;
+  } catch (error) {
+    console.error('Error saving comment reaction:', error);
+    throw error;
+  }
+};
+
+export const getCommentReactions = async (eventId: string): Promise<Record<string, CommentReaction>> => {
+  try {
+    const storedReactions = await AsyncStorage.getItem(COMMENT_REACTIONS_KEY);
+    const reactions: CommentReaction[] = storedReactions ? JSON.parse(storedReactions) : [];
+    
+    // Filter reactions for the specific event and convert to a record
+    const eventReactions = reactions.filter(r => {
+      // Assuming commentId contains the eventId
+      return r.commentId.startsWith(eventId);
+    });
+    
+    // Convert array to record with commentId as key
+    return eventReactions.reduce((acc, reaction) => ({
+      ...acc,
+      [reaction.commentId]: reaction
+    }), {});
+  } catch (error) {
+    console.error('Error getting comment reactions:', error);
+    return {};
+  }
+};
+
 // Event tags and categories
 export const getTagsForEvent = async (eventId: string): Promise<string[]> => {
   try {

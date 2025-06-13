@@ -16,25 +16,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
 import { ArrowLeft, User, Mail, Camera, Save } from 'lucide-react-native';
 
 export default function EditProfileScreen() {
   const { colors } = useTheme();
-  const { user, profile } = useAuth(); 
+  const { user } = useAuth(); 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
   // Define the profile form data interface
   interface ProfileFormData {
-    full_name: string;
+    fullName: string;
     email: string;
-    avatar_url: string;
+    avatarUrl: string;
   }
 
   const [formData, setFormData] = useState<ProfileFormData>({
-    full_name: '',
+    fullName: '',
     email: '',
-    avatar_url: '',
+    avatarUrl: '',
   });
 
   useEffect(() => {
@@ -44,10 +45,10 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // Initialize form with current profile data
-    if (profile) {
+    // Initialize form with current user data
+    if (user) {
       setFormData({
-        full_name: profile.full_name || '',
+        fullName: user.fullName || '',
         email: profile.email || user.email || '',
         avatar_url: profile.avatar_url || 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
       });
@@ -62,28 +63,26 @@ export default function EditProfileScreen() {
     });
   };
 
-  const handleSaveProfile = async () => {
+  const handleSave = async () => {
     if (!user) return;
-
+    
+    setSaving(true);
+    
     try {
-      setSaving(true);
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          avatar_url: formData.avatar_url,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      Alert.alert(
-        'Success',
-        'Profile updated successfully!',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      // Update user in local storage
+      const updatedUser = {
+        ...user,
+        fullName: formData.fullName,
+        email: formData.email,
+        avatarUrl: formData.avatarUrl,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Save updated user to storage
+      await storage.setUser(updatedUser);
+      
+      Alert.alert('Success', 'Profile updated successfully!');
+      router.back();
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
@@ -120,7 +119,7 @@ export default function EditProfileScreen() {
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={{ uri: formData.avatar_url }}
+                source={{ uri: formData.avatarUrl }}
                 style={styles.profileImage}
               />
               <TouchableOpacity
@@ -140,7 +139,7 @@ export default function EditProfileScreen() {
                   const alertOptions: ExtendedAlertOptions = {
                     cancelable: true,
                     prompt: {
-                      defaultValue: formData.avatar_url,
+                      defaultValue: formData.avatarUrl,
                       placeholder: 'Enter image URL'
                     }
                   };
@@ -154,7 +153,7 @@ export default function EditProfileScreen() {
                         text: 'Update',
                         onPress: (value?: string) => {
                           if (value && value.trim() !== '') {
-                            handleInputChange('avatar_url', value);
+                            handleInputChange('avatarUrl', value);
                           }
                         },
                       },
@@ -174,11 +173,11 @@ export default function EditProfileScreen() {
                 <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
                   <User size={20} color={colors.primary} style={styles.inputIcon} />
                   <TextInput
-                    style={[styles.input, { color: colors.text }]}
-                    placeholder="Enter your full name"
-                    placeholderTextColor={colors.subtext}
-                    value={formData.full_name}
-                    onChangeText={(text) => handleInputChange('full_name', text)}
+                    style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+                    placeholder="Full Name"
+                    placeholderTextColor={colors.textSecondary}
+                    value={formData.fullName}
+                    onChangeText={(text) => setFormData({ ...formData, fullName: text })}
                   />
                 </View>
               </View>

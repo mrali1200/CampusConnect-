@@ -17,6 +17,13 @@ export default function EventCard({ event }: EventCardProps) {
     router.push(`/event-details/${event.id}`);
   };
 
+  // Ensure we have a valid image URL
+  const imageUrl = event.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+  const eventTitle = event.title || event.name || 'Untitled Event';
+  const eventLocation = event.venue || event.location || 'Location TBD';
+  const eventTime = event.time || '10:00 AM';
+  const eventCategory = event.category || 'General';
+  
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.card }]}
@@ -24,12 +31,14 @@ export default function EventCard({ event }: EventCardProps) {
       activeOpacity={0.7}
     >
       <Image
-        source={{ uri: event.imageUrl || 'https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg' }}
+        source={{ uri: imageUrl }}
         style={styles.image}
+        resizeMode="cover"
+        defaultSource={{ uri: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' }}
       />
       
-      <View style={styles.categoryBadge}>
-        <Text style={styles.categoryText}>{event.category}</Text>
+      <View style={[styles.categoryBadge, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.categoryText, { color: '#fff' }]}>{eventCategory}</Text>
       </View>
       
       <View style={styles.cardContent}>
@@ -37,7 +46,7 @@ export default function EventCard({ event }: EventCardProps) {
           style={[styles.title, { color: colors.text }]}
           numberOfLines={2}
         >
-          {event.name}
+          {eventTitle}
         </Text>
         
         <View style={styles.metadataContainer}>
@@ -51,7 +60,7 @@ export default function EventCard({ event }: EventCardProps) {
           <View style={styles.metadataItem}>
             <Clock size={16} color={colors.primary} style={styles.metadataIcon} />
             <Text style={[styles.metadataText, { color: colors.text }]}>
-              {event.time}
+              {eventTime}
             </Text>
           </View>
           
@@ -61,7 +70,7 @@ export default function EventCard({ event }: EventCardProps) {
               style={[styles.metadataText, { color: colors.text }]}
               numberOfLines={1}
             >
-              {event.venue}
+              {eventLocation}
             </Text>
           </View>
         </View>

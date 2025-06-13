@@ -1,12 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  Image, 
+  ActivityIndicator,
+  Alert 
+} from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { Heart, MessageCircle, Share2, MoreHorizontal, Calendar, Users } from 'lucide-react-native';
+import { storage } from '@/lib/storage';
+import { Heart, MessageCircle, Share2, Calendar, Users } from 'lucide-react-native';
 import { format } from 'date-fns';
 
 type ActivityType = 'event_registration' | 'event_checkin' | 'comment' | 'like' | 'share';
+
+interface ActivityLike {
+  id: string;
+  user_id: string;
+  activity_id: string;
+  created_at: string;
+}
+
+interface ActivityShare {
+  id: string;
+  activity_id: string;
+  shared_at: string;
+}
 
 interface ActivityItem {
   id: string;
@@ -45,70 +67,47 @@ export default function ActivityFeed({ userId, eventId, limit = 20 }: ActivityFe
     try {
       setLoading(true);
       setError(null);
+      const currentUserId = user?.id;
 
-      let query = supabase
-        .from('activities')
-        .select(`
-          id,
-          user_id,
-          activity_type,
-          content,
-          event_id,
-          created_at,
-          users:user_id (name, avatar_url),
-          events:event_id (name),
-          likes:activity_likes (count),
-          comments:activity_comments (count)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      // Apply filters if provided
+      // Load activities from local storage
+      const activities = await storage.getData<ActivityItem[]>('activities') || [];
+      
+      // Filter by user or event if specified
+      let filteredActivities = [...activities];
+      
       if (userId) {
-        query = query.eq('user_id', userId);
+        filteredActivities = filteredActivities.filter(activity => activity.user_id === userId);
       }
-
+      
       if (eventId) {
-        query = query.eq('event_id', eventId);
+        filteredActivities = filteredActivities.filter(activity => activity.event_id === eventId);
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
+      
+      // Sort by most recent
+      filteredActivities.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      // Apply limit
+      if (limit) {
+        filteredActivities = filteredActivities.slice(0, limit);
+      }
+      
       // Check if current user has liked each activity
       const activitiesWithLikes = await Promise.all(
-        (data || []).map(async (activity: any) => {
-          let hasLiked = false;
+        filteredActivities.map(async (activity) => {
+          if (!currentUserId) return { ...activity, has_liked: false };
           
-          if (user) {
-            const { data: likeData } = await supabase
-              .from('activity_likes')
-              .select('id')
-              .eq('activity_id', activity.id)
-              .eq('user_id', user.id)
-              .single();
-            
-            hasLiked = !!likeData;
-          }
-
-          return {
-            id: activity.id,
-            user_id: activity.user_id,
-            activity_type: activity.activity_type,
-            content: activity.content,
-            event_id: activity.event_id,
-            event_name: activity.events?.name,
-            created_at: activity.created_at,
-            user_name: activity.users?.name || 'Unknown User',
-            user_avatar: activity.users?.avatar_url,
-            likes_count: activity.likes?.count || 0,
-            comments_count: activity.comments?.count || 0,
-            has_liked: hasLiked
-          };
+          // Check if user has liked this activity
+          const likes = await storage.getData<ActivityLike[]>('activity_likes') || [];
+          const hasLiked = likes.some(like => 
+            like.user_id === currentUserId && like.activity_id === activity.id
+          );
+          
+          return { ...activity, has_liked: hasLiked };
         })
       );
-
+      
       setActivities(activitiesWithLikes);
     } catch (err) {
       console.error('Error loading activities:', err);
@@ -124,49 +123,103 @@ export default function ActivityFeed({ userId, eventId, limit = 20 }: ActivityFe
     loadActivities();
   };
 
-  const handleLike = async (activityId: string, currentlyLiked: boolean) => {
-    if (!user) return; // Require authentication
-
+  const handleLike = async (activityId: string) => {
+    if (!user) return;
+    
     try {
-      if (currentlyLiked) {
-        // Unlike
-        await supabase
-          .from('activity_likes')
-          .delete()
-          .eq('activity_id', activityId)
-          .eq('user_id', user.id);
+      // Get all activities and likes
+      const [activitiesData, likesData] = await Promise.all([
+        storage.getData<ActivityItem[]>('activities'),
+        storage.getData<ActivityLike[]>('activity_likes')
+      ]);
+      
+      const allActivities: ActivityItem[] = activitiesData || [];
+      const allLikes = likesData || [];
+      
+      // Find the activity
+      const activity = allActivities.find(a => a.id === activityId);
+      if (!activity) return;
+      
+      const hasLiked = allLikes.some(like => 
+        like.user_id === user.id && like.activity_id === activityId
+      );
+      
+      let updatedLikes = [...allLikes];
+      
+      if (hasLiked) {
+        // Unlike: Remove the like
+        updatedLikes = allLikes.filter(like => 
+          !(like.user_id === user.id && like.activity_id === activityId)
+        );
       } else {
-        // Like
-        await supabase
-          .from('activity_likes')
-          .insert({
-            activity_id: activityId,
-            user_id: user.id,
-            created_at: new Date().toISOString()
-          });
+        // Like: Add new like
+        updatedLikes.push({
+          id: `like-${Date.now()}`,
+          user_id: user.id,
+          activity_id: activityId,
+          created_at: new Date().toISOString()
+        });
       }
-
-      // Update local state
-      setActivities(activities.map(activity => {
-        if (activity.id === activityId) {
+      
+      // Update the activity's like count
+      const updatedActivities = allActivities.map(a => {
+        if (a.id === activityId) {
           return {
-            ...activity,
-            has_liked: !currentlyLiked,
-            likes_count: currentlyLiked 
-              ? Math.max(0, activity.likes_count - 1) 
-              : activity.likes_count + 1
+            ...a,
+            likes_count: hasLiked 
+              ? Math.max(0, (a.likes_count || 0) - 1)
+              : (a.likes_count || 0) + 1,
+            has_liked: !hasLiked
           };
         }
-        return activity;
-      }));
-    } catch (err) {
-      console.error('Error liking activity:', err);
+        return a;
+      });
+      
+      // Save all changes
+      await Promise.all([
+        storage.setData('activities', updatedActivities),
+        storage.setData('activity_likes', updatedLikes)
+      ]);
+      
+      // Update local state with filtered activities
+      const filteredActivities = updatedActivities
+        .filter(a => {
+          const matchesUser = !userId || a.user_id === userId;
+          const matchesEvent = !eventId || a.event_id === eventId;
+          return matchesUser && matchesEvent;
+        })
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, limit);
+      
+      setActivities(filteredActivities);
+      
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      Alert.alert('Error', 'Failed to update like. Please try again.');
     }
   };
 
   const handleShare = async (activity: ActivityItem) => {
-    // Implement share functionality
-    console.log('Share activity:', activity.id);
+    try {
+      // In a real app, you would use the Share API to share content
+      // For now, we'll just show an alert
+      Alert.alert(
+        'Share Activity', 
+        `Share this ${activity.event_name ? 'event' : 'activity'} with others!`
+      );
+      
+      // Log the share event
+      const shares = await storage.getData<ActivityShare[]>('activity_shares') || [];
+      shares.push({
+        id: `share-${Date.now()}`,
+        activity_id: activity.id,
+        shared_at: new Date().toISOString()
+      });
+      await storage.setData('activity_shares', shares);
+      
+    } catch (error) {
+      console.error('Error sharing activity:', error);
+    }
   };
 
   const getActivityIcon = (type: ActivityType) => {

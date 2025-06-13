@@ -15,18 +15,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { format } from 'date-fns';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { fetchEventById } from '@/services/api';
-import { registerForEvent, isEventRegistered } from '@/services/storage';
-import { configureNotifications, scheduleEventReminder, trackNotification } from '@/services/notifications';
-import { Event } from '@/types';
+import { useAuth } from '../../contexts/AuthContext';
+import { configureNotifications, scheduleEventReminder } from '@/services/notifications';
 import { Calendar, Clock, MapPin, Share2, Users, ArrowLeft, Bell } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
+import { storage } from '@/lib/storage';
+
+type Event = import('@/lib/storage').Event;
+type Registration = import('@/lib/storage').Registration;
 
 export default function EventDetailsScreen() { 
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,11 @@ export default function EventDetailsScreen() {
   const loadEvent = async (eventId: string) => {
     setLoading(true);
     try {
-      const data = await fetchEventById(eventId);
+      const data = await storage.getEvent(eventId);
+      if (!data) {
+        setError('Event not found');
+        return;
+      }
       setEvent(data);
     } catch (err) {
       setError('Failed to load event details. Please try again later.');
@@ -53,58 +57,71 @@ export default function EventDetailsScreen() {
   };
 
   const checkRegistrationStatus = async (eventId: string) => {
-    const registered = await isEventRegistered(eventId);
-    setIsRegistered(registered);
+    if (!user) return;
+    
+    try {
+      const registrations = await storage.getRegistrationsByUser(user.id);
+      const registered = registrations.some(
+        reg => reg.eventId === eventId && reg.status !== 'cancelled'
+      );
+      setIsRegistered(registered);
+    } catch (error) {
+      console.error('Error checking registration status:', error);
+    }
   };
 
   const handleRegister = async () => {
-    if (!event) return;
+    if (!event || !user) return;
     
-    // Check if user is logged in
-    if (!user) {
+    if (isGuest) {
       Alert.alert(
-        'Authentication Required',
-        'You need to sign in to register for events.',
+        'Sign In Required',
+        'Please sign in to register for events. Guest users cannot register for events.',
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => router.push('/sign-in') }
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Sign In',
+            onPress: () => router.push('/sign-in'),
+          },
         ]
       );
       return;
     }
     
     try {
-      // Register for the event
-      await registerForEvent(event);
+      // Save registration to local storage
+      const registration: Omit<Registration, 'id' | 'registeredAt' | 'updatedAt'> = {
+        eventId: event.id,
+        userId: user.id,
+        status: 'registered'
+      };
       
-      // Also save registration to Supabase
-      const { error } = await supabase
-        .from('registrations')
-        .insert({
-          event_id: event.id,
-          user_id: user.id,
-          status: 'registered',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-        
-      if (error) throw error;
-      
-      // Schedule notification for the event
-      const hasPermission = await configureNotifications();
-      if (hasPermission) {
-        const notificationId = await scheduleEventReminder(event.id, user.id);
-        if (notificationId) {
-          // Track notification in database
-          await trackNotification(user.id, event.id, notificationId);
-        }
-      }
-      
+      await storage.saveRegistration(registration);
       setIsRegistered(true);
-      router.push(`/registration-confirmation/${event.id}`);
-    } catch (err) {
-      console.error('Failed to register:', err);
-      Alert.alert('Registration Failed', 'Failed to register for the event. Please try again.');
+      
+      // Show success message
+      Alert.alert(
+        'Registration Successful',
+        `You've successfully registered for ${event.title}. We'll send you a reminder before the event!`,
+        [
+          { 
+            text: 'OK',
+            onPress: () => {
+              // Refresh registration status
+              checkRegistrationStatus(event.id);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert(
+        'Registration Failed',
+        'There was an error processing your registration. Please try again.'
+      );
     }
   };
 
@@ -113,10 +130,8 @@ export default function EventDetailsScreen() {
     
     try {
       await Share.share({
-        title: event.name,
-        message: Platform.OS === 'ios' 
-          ? `Check out this event: ${event.name}`
-          : `Check out this event: ${event.name} at ${event.venue} on ${format(new Date(event.date), 'MMMM d, yyyy')}. ${event.description}`,
+        title: event.title,
+        message: `Check out this event: ${event.title} at ${event.location} on ${format(new Date(event.date), 'MMMM d, yyyy')}. ${event.description}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -220,7 +235,7 @@ export default function EventDetailsScreen() {
         </View>
 
         <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-          <Text style={[styles.eventTitle, { color: colors.text }]}>{event.name}</Text>
+          <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title}</Text>
           
           {/* Event metadata */}
           <View style={styles.metadataContainer}>
@@ -241,14 +256,14 @@ export default function EventDetailsScreen() {
             <View style={styles.metadataItem}>
               <MapPin size={20} color={colors.primary} style={styles.metadataIcon} />
               <Text style={[styles.metadataText, { color: colors.text }]}>
-                {event.venue}
+                {event.location}
               </Text>
             </View>
             
             <View style={styles.metadataItem}>
               <Users size={20} color={colors.primary} style={styles.metadataIcon} />
               <Text style={[styles.metadataText, { color: colors.text }]}>
-                {event.popularity} attending
+                Capacity: {event.capacity}
               </Text>
             </View>
           </View>
@@ -271,7 +286,7 @@ export default function EventDetailsScreen() {
               />
               <View style={styles.organizerInfo}>
                 <Text style={[styles.organizerName, { color: colors.text }]}>
-                  {event.organizer || 'Student Activities Board'}
+                  Organizer ID: {event.creatorId}
                 </Text>
                 <Text style={[styles.organizerDescription, { color: colors.subtext }]}>
                   Campus event organizer
@@ -282,7 +297,14 @@ export default function EventDetailsScreen() {
           
           {/* Actions */}
           <View style={styles.actionContainer}>
-            {isRegistered ? (
+            {!user ? (
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/sign-in')}
+              >
+                <Text style={styles.buttonText}>Sign In to Register</Text>
+              </TouchableOpacity>
+            ) : isRegistered ? (
               <>
                 <TouchableOpacity
                   style={[styles.secondaryButton, { borderColor: colors.primary }]}
