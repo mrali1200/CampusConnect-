@@ -1,34 +1,94 @@
-<div align="center" style="background-color: #f6f8fa; padding: 40px; border-radius: 10px;">
-  <h1 style="color: #2f81f7; font-size: 3em; margin-bottom: 20px;">ConnectCampus+</h1>
-  <img src="https://res.cloudinary.com/dzekrrkep/image/upload/v1748787128/projects/eel82hw0swvr9wur1puq.png" alt="ConnectCampus+ Logo" width="420" height="580" style="border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
-  <h3 style="color: #58a6ff; font-size: 1.5em; margin-top: 20px;">A modern campus event management platform</h3>
-  <div style="display: inline-flex; gap: 10px; margin-top: 20px;">
-    <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue" alt="Platform" />
-    <img src="https://img.shields.io/badge/framework-React%20Native-blue" alt="Framework" />
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+<div align="center" style="background: linear-gradient(135deg, #1a1f29 0%, #2d3748 100%); padding: 60px 40px; border-radius: 20px; margin: 20px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; display: inline-block; margin-bottom: 30px;">
+    <h1 style="color: #ffffff; font-size: 3.5em; margin: 0; letter-spacing: -1px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">ConnectCampus+</h1>
+  </div>
+
+  <div style="position: relative; display: inline-block; margin: 20px 0;">
+    <img src="https://res.cloudinary.com/dzekrrkep/image/upload/v1748787128/projects/eel82hw0swvr9wur1puq.png" alt="ConnectCampus+ Logo" width="420" height="580" style="border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); transition: transform 0.3s ease;" />
+    <div style="position: absolute; inset: 0; border-radius: 20px; box-shadow: inset 0 0 20px rgba(255,255,255,0.2);"></div>
+  </div>
+
+  <h3 style="color: #9fafff; font-size: 1.8em; margin: 30px 0; font-weight: 300;">A modern campus event management platform</h3>
+
+  <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+    <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue?style=for-the-badge" alt="Platform" style="height: 28px;" />
+    <img src="https://img.shields.io/badge/framework-React%20Native-blue?style=for-the-badge" alt="Framework" style="height: 28px;" />
+    <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" style="height: 28px;" />
   </div>
 </div>
 
 
-<h2 style="color: #2f81f7; border-bottom: 2px solid #2f81f7; padding-bottom: 10px; margin-top: 40px;">📱 Overview</h2>
+<div style="background: #ffffff; border-radius: 15px; padding: 30px; margin: 40px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+  <h2 style="color: #1a1f29; font-size: 2em; margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px;">
+    <span style="background: linear-gradient(135deg, #2d3748 0%, #1a1f29 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">📱 Overview</span>
+  </h2>
 
-ConnectCampus+ is a comprehensive mobile application designed to enhance student engagement through seamless event discovery, registration, and management. Built with React Native and Expo, it provides a modern, intuitive interface for students to connect with campus activities.
+<p style="color: #4a5568; font-size: 1.1em; line-height: 1.6; margin: 0;">ConnectCampus+ is a comprehensive mobile application designed to enhance student engagement through seamless event discovery, registration, and management. Built with React Native and Expo, it provides a modern, intuitive interface for students to connect with campus activities.</p>
+</div>
 
-<h2 style="color: #2f81f7; border-bottom: 2px solid #2f81f7; padding-bottom: 10px; margin-top: 40px;">✨ Features</h2>
+<div style="background: #ffffff; border-radius: 15px; padding: 30px; margin: 40px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+  <h2 style="color: #1a1f29; font-size: 2em; margin: 0 0 30px 0; display: flex; align-items: center; gap: 10px;">
+    <span style="background: linear-gradient(135deg, #2d3748 0%, #1a1f29 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">✨ Features</span>
+  </h2>
 
-<h3 style="color: #58a6ff; margin-top: 30px;">🎓 For Students</h3>
-- **Event Discovery**: Browse and search for campus events with filtering options
-- **Event Registration**: Register for events with just a few taps
-- **QR Check-in**: Generate QR codes for quick event check-in
-- **Guest Mode**: Browse events without signing in
-- **Profile Management**: Customize your profile and preferences
-- **My Events**: Track registered and attended events
+<div style="background: #f8fafc; border-radius: 12px; padding: 25px; margin: 20px 0;">
+  <h3 style="color: #2d3748; font-size: 1.5em; margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px;">
+    <span style="background: #e2e8f0; padding: 8px; border-radius: 8px;">🎓</span>
+    <span>For Students</span>
+  </h3>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">🔍 Event Discovery</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Browse and search for campus events with filtering options</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">✍️ Event Registration</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Register for events with just a few taps</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">📱 QR Check-in</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Generate QR codes for quick event check-in</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">👤 Guest Mode</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Browse events without signing in</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">⚙️ Profile Management</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Customize your profile and preferences</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">📅 My Events</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Track registered and attended events</p>
+  </div>
+</div>
+</div>
 
-<h3 style="color: #58a6ff; margin-top: 30px;">👨‍💼 For Administrators</h3>
-- **Event Creation**: Create and publish new events
-- **Attendee Management**: View and manage event registrations
-- **Registration Approval**: Approve or reject registration requests
-- **Analytics**: Track attendance and engagement metrics
+<div style="background: #f8fafc; border-radius: 12px; padding: 25px; margin: 20px 0;">
+  <h3 style="color: #2d3748; font-size: 1.5em; margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px;">
+    <span style="background: #e2e8f0; padding: 8px; border-radius: 8px;">👨‍💼</span>
+    <span>For Administrators</span>
+  </h3>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">✨ Event Creation</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Create and publish new events</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">👥 Attendee Management</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">View and manage event registrations</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">✅ Registration Approval</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Approve or reject registration requests</p>
+  </div>
+  <div style="background: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <strong style="color: #2d3748;">📊 Analytics</strong>
+    <p style="color: #4a5568; margin: 5px 0 0 0;">Track attendance and engagement metrics</p>
+  </div>
+</div>
+</div>
+</div>
 
 <h2 style="color: #2f81f7; border-bottom: 2px solid #2f81f7; padding-bottom: 10px; margin-top: 40px;">🛠️ Technology Stack</h2>
 
