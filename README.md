@@ -1,18 +1,22 @@
-# ConnectCampus+
-
-<div align="center">
-  <img src="https://res.cloudinary.com/dzekrrkep/image/upload/v1748787128/projects/eel82hw0swvr9wur1puq.png" alt="ConnectCampus+ Logo" width="420" height="580" />
-  <h3>A modern campus event management platform</h3>
+<div align="center" style="background-color: #f6f8fa; padding: 40px; border-radius: 10px;">
+  <h1 style="color: #2f81f7; font-size: 3em; margin-bottom: 20px;">ConnectCampus+</h1>
+  <img src="https://res.cloudinary.com/dzekrrkep/image/upload/v1748787128/projects/eel82hw0swvr9wur1puq.png" alt="ConnectCampus+ Logo" width="420" height="580" style="border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
+  <h3 style="color: #58a6ff; font-size: 1.5em; margin-top: 20px;">A modern campus event management platform</h3>
+  <div style="display: inline-flex; gap: 10px; margin-top: 20px;">
+    <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue" alt="Platform" />
+    <img src="https://img.shields.io/badge/framework-React%20Native-blue" alt="Framework" />
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+  </div>
 </div>
 
 
-## 📱 Overview
+<h2 style="color: #2f81f7; border-bottom: 2px solid #2f81f7; padding-bottom: 10px; margin-top: 40px;">📱 Overview</h2>
 
 ConnectCampus+ is a comprehensive mobile application designed to enhance student engagement through seamless event discovery, registration, and management. Built with React Native and Expo, it provides a modern, intuitive interface for students to connect with campus activities.
 
-## ✨ Features
+<h2 style="color: #2f81f7; border-bottom: 2px solid #2f81f7; padding-bottom: 10px; margin-top: 40px;">✨ Features</h2>
 
-### For Students
+<h3 style="color: #58a6ff; margin-top: 30px;">🎓 For Students</h3>
 - **Event Discovery**: Browse and search for campus events with filtering options
 - **Event Registration**: Register for events with just a few taps
 - **QR Check-in**: Generate QR codes for quick event check-in
@@ -20,13 +24,13 @@ ConnectCampus+ is a comprehensive mobile application designed to enhance student
 - **Profile Management**: Customize your profile and preferences
 - **My Events**: Track registered and attended events
 
-### For Administrators
+<h3 style="color: #58a6ff; margin-top: 30px;">👨‍💼 For Administrators</h3>
 - **Event Creation**: Create and publish new events
 - **Attendee Management**: View and manage event registrations
 - **Registration Approval**: Approve or reject registration requests
 - **Analytics**: Track attendance and engagement metrics
 
-## 🛠️ Technology Stack
+<h2 style="color: #2f81f7; border-bottom: 2px solid #2f81f7; padding-bottom: 10px; margin-top: 40px;">🛠️ Technology Stack</h2>
 
 - **Frontend**: React Native, Expo
 - **State Management**: React Context API
@@ -157,6 +161,6 @@ For any questions or suggestions, please reach out to:
 
 ---
 
-<div align="center">
-  <p>Made with ❤️ for students</p>
+<div align="center" style="margin-top: 50px; padding: 20px; background-color: #f6f8fa; border-radius: 10px;">
+  <p style="color: #2f81f7; font-size: 1.2em;">Made with ❤️ for students</p>
 </div>
